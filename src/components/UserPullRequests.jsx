@@ -21,7 +21,9 @@ export default function UserPRs({ activePRs, user }) {
             <div key={i} className="bg-gray-950 p-5 rounded-xl border border-gray-800 flex justify-between items-center hover:border-indigo-500/50 transition-colors">
               <div>
                 <p className="font-bold text-lg text-white">{pr.song}</p>
-                <p className="text-sm text-gray-400">by {pr.artist} <span className="mx-2">•</span> Target: <span className="text-indigo-400 font-mono">{pr.genre}</span></p>
+                <p className="text-sm text-gray-400">
+                  by {pr.artist} <span className="mx-2">•</span> Target: <span className="text-indigo-400 font-mono">{pr.playlist}</span> <span className="mx-2">•</span> Genre: <span className="text-gray-300">{pr.genre}</span>
+                </p>
               </div>
               <div className="flex items-center gap-2 bg-yellow-500/10 text-yellow-500 px-4 py-2 rounded-full border border-yellow-500/20">
                 <Clock className="w-4 h-4" />
