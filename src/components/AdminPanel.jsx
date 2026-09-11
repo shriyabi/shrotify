@@ -1,33 +1,153 @@
-import { useState } from 'react';
-import { ShieldAlert, Check, X, Plus, Trash2, PlayCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ShieldAlert, Check, X, Plus, Trash2, PlayCircle, Loader2, BookOpen, ChevronDown, Pencil } from 'lucide-react';
 import { updateSongOfTheDay, savePlaylists, updatePRQueue } from '../api/sheets';
 
-export default function AdminPanel({ songData, playlists, activePRs, onUpdate }) {
-  const [tab, setTab] = useState('song'); 
-  const [title, setTitle] = useState(songData?.title || '');
-  const [youtubeId, setYoutubeId] = useState(songData?.youtubeId || '');
-  const [loading, setLoading] = useState(false);
-  const [localPlaylists, setLocalPlaylists] = useState(playlists);
-  const [newGenre, setNewGenre] = useState('');
+export default function AdminPanel({ songData, playlists, playlistMeta, activePRs, onUpdate, defaultTab = 'song' }) {
+  const [tab, setTab] = useState(defaultTab); 
+  
+  const [sotdSong, setSotdSong] = useState('');
+  const [sotdArtist, setSotdArtist] = useState('');
+  const [sotdLoading, setSotdLoading] = useState(false);
+  
+  const [localPlaylists, setLocalPlaylists] = useState(playlists || {});
+  const [localMeta, setLocalMeta] = useState(playlistMeta || {});
+  const [newPlaylistName, setNewPlaylistName] = useState('');
+  const [newPlaylistImage, setNewPlaylistImage] = useState('');
+  const [newTrackInputs, setNewTrackInputs] = useState({});
+  const [expandedPlaylist, setExpandedPlaylist] = useState(null);
+  const [editingPlaylist, setEditingPlaylist] = useState(null);
+  const [editPlaylistName, setEditPlaylistName] = useState('');
+
+  const [localPRs, setLocalPRs] = useState(activePRs || []);
+  const [prLoading, setPrLoading] = useState({}); 
   const [previewAudio, setPreviewAudio] = useState(null);
+  
+  // NEW: State to track which playlist the admin selects for each PR
+  const [prPlaylists, setPrPlaylists] = useState({});
+
+  useEffect(() => {
+    if (songData) {
+      setSotdSong(songData.song || '');
+      setSotdArtist(songData.artist || '');
+    }
+  }, [songData]);
+
+  useEffect(() => { if (playlists) setLocalPlaylists(playlists); }, [playlists]);
+  useEffect(() => { if (playlistMeta) setLocalMeta(playlistMeta); }, [playlistMeta]);
+  useEffect(() => { if (activePRs) setLocalPRs(activePRs); }, [activePRs]);
 
   const handleDeploySong = async () => {
-    setLoading(true);
-    await updateSongOfTheDay(title, youtubeId, ""); 
-    onUpdate(); setLoading(false);
+    if (!sotdSong || !sotdArtist) return alert("Please fill out Song and Artist");
+    setSotdLoading(true);
+    await updateSongOfTheDay(sotdSong, sotdArtist); 
+    onUpdate(); 
+    setSotdLoading(false);
+    setSotdSong('');
+    setSotdArtist('');
   };
 
-  const handleResolvePR = async (pr, approved) => {
-    const queue = activePRs.filter(p => p !== pr);
-    if (approved) {
-      const updated = { ...localPlaylists };
-      if (!updated[pr.genre]) updated[pr.genre] = [];
-      updated[pr.genre].push(`${pr.song} - ${pr.artist}`);
-      setLocalPlaylists(updated);
-      await savePlaylists(updated);
-    }
-    await updatePRQueue(queue);
+  const addPlaylist = async () => {
+    if (!newPlaylistName) return;
+    const updatedPlaylists = { ...localPlaylists, [newPlaylistName]: [] };
+    const metaData = { url: newPlaylistImage, pinned: false };
+    const updatedMeta = { ...localMeta, [newPlaylistName]: metaData };
+    
+    setLocalPlaylists(updatedPlaylists);
+    setLocalMeta(updatedMeta);
+    setNewPlaylistName('');
+    setNewPlaylistImage('');
+    setExpandedPlaylist(newPlaylistName);
+    await savePlaylists(updatedPlaylists, updatedMeta);
     onUpdate();
+  };
+
+  const renamePlaylist = async (oldName) => {
+    if (!editPlaylistName || editPlaylistName === oldName) { setEditingPlaylist(null); return; }
+    const updatedPlaylists = { ...localPlaylists };
+    const updatedMeta = { ...localMeta };
+    
+    updatedPlaylists[editPlaylistName] = updatedPlaylists[oldName];
+    updatedMeta[editPlaylistName] = updatedMeta[oldName];
+    delete updatedPlaylists[oldName];
+    delete updatedMeta[oldName];
+    
+    setLocalPlaylists(updatedPlaylists);
+    setLocalMeta(updatedMeta);
+    setEditingPlaylist(null);
+    if (expandedPlaylist === oldName) setExpandedPlaylist(editPlaylistName);
+    await savePlaylists(updatedPlaylists, updatedMeta);
+    onUpdate();
+  };
+
+  const deletePlaylist = async (playlistName) => {
+    const updatedPlaylists = { ...localPlaylists };
+    const updatedMeta = { ...localMeta };
+    delete updatedPlaylists[playlistName];
+    delete updatedMeta[playlistName];
+    
+    setLocalPlaylists(updatedPlaylists);
+    setLocalMeta(updatedMeta);
+    if (expandedPlaylist === playlistName) setExpandedPlaylist(null);
+    await savePlaylists(updatedPlaylists, updatedMeta);
+    onUpdate();
+  };
+
+  const addTrackToPlaylist = async (playlistName) => {
+    const track = newTrackInputs[playlistName];
+    if (!track?.song || !track?.artist) return alert("Fill out Song and Artist");
+    
+    const updatedPlaylists = { ...localPlaylists };
+    updatedPlaylists[playlistName] = [...(updatedPlaylists[playlistName] || []), { song: track.song, artist: track.artist, genre: track.genre || '' }];
+    
+    setLocalPlaylists(updatedPlaylists);
+    setNewTrackInputs({ ...newTrackInputs, [playlistName]: { song: '', artist: '', genre: '' } });
+    await savePlaylists(updatedPlaylists, localMeta);
+    onUpdate();
+  };
+
+  const deleteTrackFromPlaylist = async (playlistName, trackIndex) => {
+    const updatedPlaylists = { ...localPlaylists };
+    updatedPlaylists[playlistName] = updatedPlaylists[playlistName].filter((_, idx) => idx !== trackIndex);
+    setLocalPlaylists(updatedPlaylists);
+    await savePlaylists(updatedPlaylists, localMeta);
+    onUpdate();
+  };
+
+  const updateTrackInput = (playlistName, field, value) => {
+    const current = newTrackInputs[playlistName] || { song: '', artist: '', genre: '' };
+    setNewTrackInputs({ ...newTrackInputs, [playlistName]: { ...current, [field]: value } });
+  };
+
+  // NEW: Updated to use the Admin-selected playlist instead of the PR's original playlist
+  const handleResolvePR = async (index, approved) => {
+    if (approved && !prPlaylists[index]) {
+      return alert("Please select a destination playlist before merging!");
+    }
+
+    setPrLoading(prev => ({ ...prev, [index]: true }));
+    const pr = localPRs[index];
+    const newQueue = localPRs.filter((_, i) => i !== index);
+    
+    if (approved) {
+      const targetPlaylist = prPlaylists[index]; // Grab the admin's selection
+      const updatedPlaylists = { ...localPlaylists };
+      if (!updatedPlaylists[targetPlaylist]) updatedPlaylists[targetPlaylist] = [];
+      
+      updatedPlaylists[targetPlaylist].push({ song: pr.song, artist: pr.artist, genre: pr.genre });
+      setLocalPlaylists(updatedPlaylists);
+      await savePlaylists(updatedPlaylists, localMeta);
+    }
+    
+    await updatePRQueue(newQueue);
+    setLocalPRs(newQueue);
+    
+    // Clean up the dropdown state
+    const newPrPlaylists = { ...prPlaylists };
+    delete newPrPlaylists[index];
+    setPrPlaylists(newPrPlaylists);
+    
+    setPrLoading(prev => ({ ...prev, [index]: false }));
+    onUpdate(); 
   };
 
   const playPreview = async (song, artist) => {
@@ -43,81 +163,163 @@ export default function AdminPanel({ songData, playlists, activePRs, onUpdate })
     }
   };
 
-  const addPlaylist = () => {
-    if (!newGenre) return;
-    setLocalPlaylists({ ...localPlaylists, [newGenre]: [] });
-    setNewGenre('');
-  };
-
-  const deletePlaylist = async (genre) => {
-    const updated = { ...localPlaylists };
-    delete updated[genre];
-    setLocalPlaylists(updated);
-    await savePlaylists(updated);
-    onUpdate();
-  };
-
   return (
-    <div className="bg-gray-950 min-h-screen text-white rounded-3xl border border-gray-800 shadow-2xl p-8">
+    <div className="bg-gray-950 text-white rounded-3xl border border-gray-800 shadow-2xl p-4 md:p-8">
       <div className="max-w-4xl mx-auto">
         <header className="flex justify-between items-center mb-8 border-b border-gray-800 pb-4">
           <h1 className="text-3xl font-bold font-mono text-indigo-500 flex items-center gap-3">
-            <ShieldAlert /> Admin Control
+            <ShieldAlert /> Admin Dashboard
           </h1>
         </header>
 
-        <div className="flex gap-2 mb-8 bg-gray-900 p-2 rounded-xl w-fit">
-          <button onClick={() => setTab('song')} className={`px-6 py-2 rounded-lg font-bold ${tab === 'song' ? 'bg-indigo-600' : 'text-gray-400'}`}>Song of the Day</button>
-          <button onClick={() => setTab('playlists')} className={`px-6 py-2 rounded-lg font-bold ${tab === 'playlists' ? 'bg-indigo-600' : 'text-gray-400'}`}>Manage Playlists</button>
-          <button onClick={() => setTab('prs')} className={`px-6 py-2 rounded-lg font-bold flex gap-2 ${tab === 'prs' ? 'bg-indigo-600' : 'text-gray-400'}`}>
-            Pull Requests {activePRs.length > 0 && <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">{activePRs.length}</span>}
+        <div className="flex flex-wrap gap-2 mb-8 bg-gray-900 p-2 rounded-xl w-fit">
+          <button onClick={() => setTab('song')} className={`px-6 py-2 rounded-lg font-bold transition-all ${tab === 'song' ? 'bg-indigo-600' : 'text-gray-400 hover:text-white'}`}>Song of the Day</button>
+          <button onClick={() => setTab('playlists')} className={`px-6 py-2 rounded-lg font-bold transition-all ${tab === 'playlists' ? 'bg-indigo-600' : 'text-gray-400 hover:text-white'}`}>Manage Playlists</button>
+          <button onClick={() => setTab('prs')} className={`px-6 py-2 rounded-lg font-bold flex items-center gap-2 transition-all ${tab === 'prs' ? 'bg-indigo-600' : 'text-gray-400 hover:text-white'}`}>
+            Pull Requests {localPRs.length > 0 && <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">{localPRs.length}</span>}
           </button>
         </div>
 
         {tab === 'song' && (
           <div className="bg-gray-900 p-6 rounded-2xl border border-gray-800 space-y-4">
-            <div>
-              <label className="text-sm text-gray-400 block mb-1">Song & Artist (e.g. Espresso - Sabrina Carpenter)</label>
-              <input type="text" value={title} onChange={e => setTitle(e.target.value)} className="w-full bg-gray-950 border border-gray-800 rounded-lg px-4 py-3" />
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="flex-1">
+                <label className="text-sm text-gray-400 block mb-1">Song Name</label>
+                <input type="text" value={sotdSong} onChange={e => setSotdSong(e.target.value)} className="w-full bg-gray-950 border border-gray-800 rounded-lg px-4 py-3 focus:outline-none focus:border-indigo-500" />
+              </div>
+              <div className="flex-1">
+                <label className="text-sm text-gray-400 block mb-1">Artist</label>
+                <input type="text" value={sotdArtist} onChange={e => setSotdArtist(e.target.value)} className="w-full bg-gray-950 border border-gray-800 rounded-lg px-4 py-3 focus:outline-none focus:border-indigo-500" />
+              </div>
             </div>
-            <div>
-              <label className="text-sm text-gray-400 block mb-1">YouTube Video ID (e.g. eVli-tstM5E)</label>
-              <input type="text" value={youtubeId} onChange={e => setYoutubeId(e.target.value)} className="w-full bg-gray-950 border border-gray-800 rounded-lg px-4 py-3" />
-            </div>
-            <button onClick={handleDeploySong} disabled={loading} className="bg-indigo-600 hover:bg-indigo-700 w-full py-3 rounded-xl font-bold">Push to Production</button>
+            <button 
+              onClick={handleDeploySong} 
+              disabled={sotdLoading || !sotdSong || !sotdArtist} 
+              className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all"
+            >
+              {sotdLoading ? <><Loader2 className="w-5 h-5 animate-spin" /> Deploying...</> : 'Push to Production'}
+            </button>
           </div>
         )}
 
         {tab === 'playlists' && (
           <div className="space-y-6">
-            <div className="flex gap-2">
-              <input type="text" value={newGenre} onChange={e=>setNewGenre(e.target.value)} placeholder="New Genre Name" className="bg-gray-900 border border-gray-800 rounded-lg px-4 py-2 flex-1" />
-              <button onClick={addPlaylist} className="bg-green-600 px-6 py-2 rounded-lg font-bold flex items-center gap-2"><Plus/> Create</button>
-            </div>
-            {Object.entries(localPlaylists).map(([genre, tracks]) => (
-              <div key={genre} className="bg-gray-900 p-4 rounded-xl border border-gray-800">
-                <div className="flex justify-between items-center">
-                  <h3 className="font-bold text-lg">{genre} ({tracks.length} tracks)</h3>
-                  <button onClick={() => deletePlaylist(genre)} className="text-red-500 p-2 hover:bg-red-500/10 rounded-lg"><Trash2 className="w-5 h-5"/></button>
-                </div>
+            <div className="flex flex-col md:flex-row gap-2">
+              <div className="flex-1">
+                <label className="text-sm text-gray-400 block mb-1">Playlist Name</label>
+                <input type="text" value={newPlaylistName} onChange={e=>setNewPlaylistName(e.target.value)} className="w-full bg-gray-900 border border-gray-800 rounded-lg px-4 py-2 focus:outline-none focus:border-indigo-500" />
               </div>
-            ))}
+              <div className="flex-1">
+                <label className="text-sm text-gray-400 block mb-1">Picture URL (Optional)</label>
+                <input type="text" value={newPlaylistImage} onChange={e=>setNewPlaylistImage(e.target.value)} className="w-full bg-gray-900 border border-gray-800 rounded-lg px-4 py-2 focus:outline-none focus:border-indigo-500" />
+              </div>
+              <div className="flex items-end">
+                <button onClick={addPlaylist} disabled={!newPlaylistName} className="bg-green-600 hover:bg-green-700 disabled:opacity-50 h-[42px] px-6 rounded-lg font-bold flex items-center justify-center gap-2 transition-colors"><Plus className="w-5 h-5"/> Create</button>
+              </div>
+            </div>
+            
+            <div className="flex flex-col gap-4 mt-6">
+              {Object.entries(localPlaylists).map(([playlistName, tracks]) => {
+                const isExpanded = expandedPlaylist === playlistName;
+                const isEditing = editingPlaylist === playlistName;
+
+                return (
+                  <div key={playlistName} className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden transition-all group">
+                    <div className="flex justify-between items-center p-5 cursor-pointer hover:bg-gray-800/50 transition-colors" onClick={() => !isEditing && setExpandedPlaylist(isExpanded ? null : playlistName)}>
+                      
+                      <div className="flex items-center gap-3">
+                        <ChevronDown className={`w-5 h-5 text-gray-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                        {isEditing ? (
+                          <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                            <input type="text" value={editPlaylistName} onChange={e => setEditPlaylistName(e.target.value)} className="bg-gray-950 border border-indigo-500 rounded px-2 py-1 text-indigo-400 font-bold focus:outline-none" autoFocus />
+                            <button onClick={() => renamePlaylist(playlistName)} className="text-green-500 hover:bg-green-500/20 p-1 rounded transition-colors"><Check className="w-4 h-4"/></button>
+                            <button onClick={() => setEditingPlaylist(null)} className="text-gray-500 hover:bg-gray-800 p-1 rounded transition-colors"><X className="w-4 h-4"/></button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-bold text-lg text-indigo-400">{playlistName} <span className="text-gray-500 text-sm ml-2">({tracks.length} tracks)</span></h3>
+                            <button onClick={(e) => { e.stopPropagation(); setEditingPlaylist(playlistName); setEditPlaylistName(playlistName); }} className="text-gray-500 hover:text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity ml-2 p-1" title="Rename Playlist"><Pencil className="w-4 h-4"/></button>
+                          </div>
+                        )}
+                      </div>
+
+                      <button onClick={(e) => { e.stopPropagation(); deletePlaylist(playlistName); }} className="text-red-500/70 hover:text-red-500 hover:bg-red-500/10 p-2 rounded-lg transition-colors" title="Delete entire playlist"><Trash2 className="w-5 h-5"/></button>
+                    </div>
+
+                    {isExpanded && !isEditing && (
+                      <div className="p-5 pt-0 border-t border-gray-800/50 bg-gray-900/50">
+                        <ul className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar pr-2 mt-4 mb-4">
+                          {tracks.length === 0 && <p className="text-gray-500 text-sm italic">No tracks yet.</p>}
+                          {tracks.map((track, i) => (
+                            <li key={i} className="flex justify-between items-center bg-gray-950 px-3 py-2 rounded-lg text-sm group/track border border-transparent hover:border-gray-800">
+                              <span className="truncate text-gray-300 pr-2">
+                                {track.song} <span className="text-gray-500">- {track.artist}</span>
+                                {track.genre && <span className="ml-2 bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full text-xs">{track.genre}</span>}
+                              </span>
+                              <button onClick={() => deleteTrackFromPlaylist(playlistName, i)} className="text-gray-600 hover:text-red-500 opacity-0 group-hover/track:opacity-100 transition-all"><Trash2 className="w-4 h-4"/></button>
+                            </li>
+                          ))}
+                        </ul>
+                        
+                        <div className="flex flex-col sm:flex-row gap-2 items-end">
+                          <div className="flex-1 w-full">
+                            <label className="text-xs text-gray-400 mb-1 block">Song Title</label>
+                            <input type="text" value={newTrackInputs[playlistName]?.song || ''} onChange={(e) => updateTrackInput(playlistName, 'song', e.target.value)} className="w-full bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500" />
+                          </div>
+                          <div className="flex-1 w-full">
+                            <label className="text-xs text-gray-400 mb-1 block">Artist</label>
+                            <input type="text" value={newTrackInputs[playlistName]?.artist || ''} onChange={(e) => updateTrackInput(playlistName, 'artist', e.target.value)} className="w-full bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500" />
+                          </div>
+                          <div className="flex-1 w-full">
+                            <label className="text-xs text-gray-400 mb-1 block">Genre (Optional)</label>
+                            <input type="text" value={newTrackInputs[playlistName]?.genre || ''} onChange={(e) => updateTrackInput(playlistName, 'genre', e.target.value)} className="w-full bg-gray-950 border border-gray-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500" />
+                          </div>
+                          <button onClick={() => addTrackToPlaylist(playlistName)} disabled={!newTrackInputs[playlistName]?.song || !newTrackInputs[playlistName]?.artist} className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 px-4 py-2 h-[38px] rounded-lg text-sm font-bold transition-colors">Add</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
 
+        {/* PRs TAB - UPDATED WITH DROPDOWN */}
         {tab === 'prs' && (
           <div className="space-y-4">
-            {activePRs.length === 0 ? <p className="text-gray-500">No pending pull requests.</p> : activePRs.map((pr, i) => (
-              <div key={i} className="bg-gray-900 p-5 rounded-xl border border-gray-800 flex justify-between items-center">
-                <div>
+            {localPRs.length === 0 ? <p className="text-gray-500">No pending pull requests.</p> : localPRs.map((pr, i) => (
+              <div key={i} className="bg-gray-900 p-5 rounded-xl border border-gray-800 flex justify-between items-center relative overflow-hidden">
+                {prLoading[i] && (
+                   <div className="absolute inset-0 bg-gray-900/80 backdrop-blur-sm z-10 flex items-center justify-center">
+                      <Loader2 className="w-6 h-6 text-indigo-500 animate-spin" />
+                   </div>
+                )}
+                <div className="relative z-0">
                   <p className="font-bold text-lg flex items-center gap-2">{pr.song} - {pr.artist} 
-                    <button onClick={() => playPreview(pr.song, pr.artist)} className="text-indigo-400 hover:text-white"><PlayCircle className="w-5 h-5" /></button>
+                    <button onClick={() => playPreview(pr.song, pr.artist)} className="text-indigo-400 hover:text-white transition-colors"><PlayCircle className="w-5 h-5" /></button>
                   </p>
-                  <p className="text-sm text-gray-400">Target: {pr.genre} | Suggested by: {pr.user}</p>
+                  <p className="text-sm text-gray-400 mb-3">Suggested Genre: {pr.genre} | By: {pr.user}</p>
+                  
+                  {/* NEW: Admin Destination Selector */}
+                  <div className="flex items-center gap-3 bg-gray-950 p-2 rounded-lg border border-gray-800 w-max">
+                    <label className="text-xs text-gray-500 font-bold uppercase tracking-wider pl-1">Assign to:</label>
+                    <select 
+                      value={prPlaylists[i] || ''} 
+                      onChange={(e) => setPrPlaylists({...prPlaylists, [i]: e.target.value})}
+                      className="bg-black text-white text-sm rounded-md px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 border border-gray-800"
+                    >
+                      <option value="" disabled>Select Playlist...</option>
+                      {Object.keys(localPlaylists).map(pName => (
+                        <option key={pName} value={pName}>{pName}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <button onClick={() => handleResolvePR(pr, false)} className="bg-gray-800 hover:bg-red-900/50 text-red-500 p-3 rounded-lg"><X/></button>
-                  <button onClick={() => handleResolvePR(pr, true)} className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-bold flex items-center gap-2"><Check/> Merge</button>
+
+                <div className="flex gap-2 relative z-0">
+                  <button onClick={() => handleResolvePR(i, false)} disabled={prLoading[i]} className="bg-gray-800 hover:bg-red-900/50 disabled:opacity-50 text-red-500 p-3 rounded-lg transition-colors"><X/></button>
+                  <button onClick={() => handleResolvePR(i, true)} disabled={prLoading[i] || !prPlaylists[i]} className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white px-6 py-3 rounded-lg font-bold flex items-center gap-2 transition-colors"><Check/> Merge</button>
                 </div>
               </div>
             ))}
