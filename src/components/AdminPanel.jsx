@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ShieldAlert, Check, X, Plus, Trash2, PlayCircle } from 'lucide-react';
+import { ShieldAlert, Check, X, Plus, Trash2, PlayCircle, Loader2 } from 'lucide-react';
 import { updateSongOfTheDay, savePlaylists, updatePRQueue } from '../api/sheets';
 
 export default function AdminPanel({ songData, playlists, activePRs, onUpdate }) {
@@ -14,7 +14,8 @@ export default function AdminPanel({ songData, playlists, activePRs, onUpdate })
   const handleDeploySong = async () => {
     setLoading(true);
     await updateSongOfTheDay(title, youtubeId, ""); 
-    onUpdate(); setLoading(false);
+    onUpdate(); 
+    setLoading(false);
   };
 
   const handleResolvePR = async (pr, approved) => {
@@ -78,27 +79,40 @@ export default function AdminPanel({ songData, playlists, activePRs, onUpdate })
           <div className="bg-gray-900 p-6 rounded-2xl border border-gray-800 space-y-4">
             <div>
               <label className="text-sm text-gray-400 block mb-1">Song & Artist (e.g. Espresso - Sabrina Carpenter)</label>
-              <input type="text" value={title} onChange={e => setTitle(e.target.value)} className="w-full bg-gray-950 border border-gray-800 rounded-lg px-4 py-3" />
+              <input type="text" value={title} onChange={e => setTitle(e.target.value)} className="w-full bg-gray-950 border border-gray-800 rounded-lg px-4 py-3 focus:outline-none focus:border-indigo-500" />
             </div>
             <div>
               <label className="text-sm text-gray-400 block mb-1">YouTube Video ID (e.g. eVli-tstM5E)</label>
-              <input type="text" value={youtubeId} onChange={e => setYoutubeId(e.target.value)} className="w-full bg-gray-950 border border-gray-800 rounded-lg px-4 py-3" />
+              <input type="text" value={youtubeId} onChange={e => setYoutubeId(e.target.value)} className="w-full bg-gray-950 border border-gray-800 rounded-lg px-4 py-3 focus:outline-none focus:border-indigo-500" />
             </div>
-            <button onClick={handleDeploySong} disabled={loading} className="bg-indigo-600 hover:bg-indigo-700 w-full py-3 rounded-xl font-bold">Push to Production</button>
+            <button 
+              onClick={handleDeploySong} 
+              disabled={loading} 
+              className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Deploying...
+                </>
+              ) : (
+                'Push to Production'
+              )}
+            </button>
           </div>
         )}
 
         {tab === 'playlists' && (
           <div className="space-y-6">
             <div className="flex gap-2">
-              <input type="text" value={newGenre} onChange={e=>setNewGenre(e.target.value)} placeholder="New Genre Name" className="bg-gray-900 border border-gray-800 rounded-lg px-4 py-2 flex-1" />
-              <button onClick={addPlaylist} className="bg-green-600 px-6 py-2 rounded-lg font-bold flex items-center gap-2"><Plus/> Create</button>
+              <input type="text" value={newGenre} onChange={e=>setNewGenre(e.target.value)} placeholder="New Genre Name" className="bg-gray-900 border border-gray-800 rounded-lg px-4 py-2 flex-1 focus:outline-none focus:border-indigo-500" />
+              <button onClick={addPlaylist} className="bg-green-600 hover:bg-green-700 px-6 py-2 rounded-lg font-bold flex items-center gap-2 transition-colors"><Plus/> Create</button>
             </div>
             {Object.entries(localPlaylists).map(([genre, tracks]) => (
               <div key={genre} className="bg-gray-900 p-4 rounded-xl border border-gray-800">
                 <div className="flex justify-between items-center">
                   <h3 className="font-bold text-lg">{genre} ({tracks.length} tracks)</h3>
-                  <button onClick={() => deletePlaylist(genre)} className="text-red-500 p-2 hover:bg-red-500/10 rounded-lg"><Trash2 className="w-5 h-5"/></button>
+                  <button onClick={() => deletePlaylist(genre)} className="text-red-500 p-2 hover:bg-red-500/10 rounded-lg transition-colors"><Trash2 className="w-5 h-5"/></button>
                 </div>
               </div>
             ))}
@@ -111,13 +125,13 @@ export default function AdminPanel({ songData, playlists, activePRs, onUpdate })
               <div key={i} className="bg-gray-900 p-5 rounded-xl border border-gray-800 flex justify-between items-center">
                 <div>
                   <p className="font-bold text-lg flex items-center gap-2">{pr.song} - {pr.artist} 
-                    <button onClick={() => playPreview(pr.song, pr.artist)} className="text-indigo-400 hover:text-white"><PlayCircle className="w-5 h-5" /></button>
+                    <button onClick={() => playPreview(pr.song, pr.artist)} className="text-indigo-400 hover:text-white transition-colors"><PlayCircle className="w-5 h-5" /></button>
                   </p>
                   <p className="text-sm text-gray-400">Target: {pr.genre} | Suggested by: {pr.user}</p>
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={() => handleResolvePR(pr, false)} className="bg-gray-800 hover:bg-red-900/50 text-red-500 p-3 rounded-lg"><X/></button>
-                  <button onClick={() => handleResolvePR(pr, true)} className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-bold flex items-center gap-2"><Check/> Merge</button>
+                  <button onClick={() => handleResolvePR(pr, false)} className="bg-gray-800 hover:bg-red-900/50 text-red-500 p-3 rounded-lg transition-colors"><X/></button>
+                  <button onClick={() => handleResolvePR(pr, true)} className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-bold flex items-center gap-2 transition-colors"><Check/> Merge</button>
                 </div>
               </div>
             ))}

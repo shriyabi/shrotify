@@ -39,7 +39,7 @@ export default function Turntable({ songData }) {
     setIsPlayingFull(!isPlayingFull);
   };
 
-  const opts = { height: '10', width: '10', playerVars: { autoplay: 0, controls: 0, origin: window.location.origin } };
+  const opts = { height: '10', width: '10', playerVars: { autoplay: 0, controls: 0, enablejsapi: 1, origin: window.location.origin } };
   const spinning = isPlayingPreview || isPlayingFull;
 
   return (
