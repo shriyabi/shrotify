@@ -22,7 +22,7 @@ export default function AdminPanel({ songData, playlists, playlistMeta, activePR
   const [prLoading, setPrLoading] = useState({}); 
   const [previewAudio, setPreviewAudio] = useState(null);
   
-  // NEW: State to track which playlist the admin selects for each PR
+  // State to track which playlist the admin selects for each PR (overrides user suggestion)
   const [prPlaylists, setPrPlaylists] = useState({});
 
   useEffect(() => {
@@ -118,18 +118,22 @@ export default function AdminPanel({ songData, playlists, playlistMeta, activePR
     setNewTrackInputs({ ...newTrackInputs, [playlistName]: { ...current, [field]: value } });
   };
 
-  // NEW: Updated to use the Admin-selected playlist instead of the PR's original playlist
   const handleResolvePR = async (index, approved) => {
-    if (approved && !prPlaylists[index]) {
+    const pr = localPRs[index];
+    
+    // Determine the target playlist: either Admin override, or User's suggestion
+    const targetPlaylist = prPlaylists[index] !== undefined 
+      ? prPlaylists[index] 
+      : (Object.keys(localPlaylists).includes(pr.playlist) ? pr.playlist : null);
+
+    if (approved && !targetPlaylist) {
       return alert("Please select a destination playlist before merging!");
     }
 
     setPrLoading(prev => ({ ...prev, [index]: true }));
-    const pr = localPRs[index];
     const newQueue = localPRs.filter((_, i) => i !== index);
     
     if (approved) {
-      const targetPlaylist = prPlaylists[index]; // Grab the admin's selection
       const updatedPlaylists = { ...localPlaylists };
       if (!updatedPlaylists[targetPlaylist]) updatedPlaylists[targetPlaylist] = [];
       
@@ -141,7 +145,6 @@ export default function AdminPanel({ songData, playlists, playlistMeta, activePR
     await updatePRQueue(newQueue);
     setLocalPRs(newQueue);
     
-    // Clean up the dropdown state
     const newPrPlaylists = { ...prPlaylists };
     delete newPrPlaylists[index];
     setPrPlaylists(newPrPlaylists);
@@ -285,44 +288,61 @@ export default function AdminPanel({ songData, playlists, playlistMeta, activePR
           </div>
         )}
 
-        {/* PRs TAB - UPDATED WITH DROPDOWN */}
+        {/* PRs TAB - UPDATED TO SHOW EMAIL, DATE, ID, AND SUGGESTED PLAYLIST */}
         {tab === 'prs' && (
           <div className="space-y-4">
-            {localPRs.length === 0 ? <p className="text-gray-500">No pending pull requests.</p> : localPRs.map((pr, i) => (
-              <div key={i} className="bg-gray-900 p-5 rounded-xl border border-gray-800 flex justify-between items-center relative overflow-hidden">
-                {prLoading[i] && (
-                   <div className="absolute inset-0 bg-gray-900/80 backdrop-blur-sm z-10 flex items-center justify-center">
-                      <Loader2 className="w-6 h-6 text-indigo-500 animate-spin" />
-                   </div>
-                )}
-                <div className="relative z-0">
-                  <p className="font-bold text-lg flex items-center gap-2">{pr.song} - {pr.artist} 
-                    <button onClick={() => playPreview(pr.song, pr.artist)} className="text-indigo-400 hover:text-white transition-colors"><PlayCircle className="w-5 h-5" /></button>
-                  </p>
-                  <p className="text-sm text-gray-400 mb-3">Suggested Genre: {pr.genre} | By: {pr.user}</p>
-                  
-                  {/* NEW: Admin Destination Selector */}
-                  <div className="flex items-center gap-3 bg-gray-950 p-2 rounded-lg border border-gray-800 w-max">
-                    <label className="text-xs text-gray-500 font-bold uppercase tracking-wider pl-1">Assign to:</label>
-                    <select 
-                      value={prPlaylists[i] || ''} 
-                      onChange={(e) => setPrPlaylists({...prPlaylists, [i]: e.target.value})}
-                      className="bg-black text-white text-sm rounded-md px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 border border-gray-800"
-                    >
-                      <option value="" disabled>Select Playlist...</option>
-                      {Object.keys(localPlaylists).map(pName => (
-                        <option key={pName} value={pName}>{pName}</option>
-                      ))}
-                    </select>
+            {localPRs.length === 0 ? <p className="text-gray-500">No pending pull requests.</p> : localPRs.map((pr, i) => {
+              
+              // Smart defaulting: If admin hasn't selected an override, check if the user's suggestion is a valid playlist
+              const defaultSelected = prPlaylists[i] !== undefined 
+                ? prPlaylists[i] 
+                : (Object.keys(localPlaylists).includes(pr.playlist) ? pr.playlist : '');
+
+              return (
+                <div key={i} className="bg-gray-900 p-5 rounded-xl border border-gray-800 flex justify-between items-center relative overflow-hidden">
+                  {prLoading[i] && (
+                    <div className="absolute inset-0 bg-gray-900/80 backdrop-blur-sm z-10 flex items-center justify-center">
+                        <Loader2 className="w-6 h-6 text-indigo-500 animate-spin" />
+                    </div>
+                  )}
+                  <div className="relative z-0">
+                    <p className="font-bold text-lg flex items-center gap-2 mb-1">{pr.song} - {pr.artist} 
+                      <button onClick={() => playPreview(pr.song, pr.artist)} className="text-indigo-400 hover:text-white transition-colors"><PlayCircle className="w-5 h-5" /></button>
+                    </p>
+                    
+                    <p className="text-sm text-gray-400 mb-1">
+                      Suggested Genre: <span className="text-gray-300 font-bold">{pr.genre}</span> | 
+                      Suggested Playlist: <span className="text-gray-300 font-bold">{pr.playlist || 'None'}</span>
+                    </p>
+                    <p className="text-xs text-gray-500 mb-4">
+                      By: <span className="text-gray-400">{pr.user} ({pr.email || 'No email'})</span> on {pr.date ? new Date(pr.date).toLocaleDateString() : 'Unknown'}
+                    </p>
+                    
+                    <div className="flex items-center gap-3 bg-gray-950 p-2 rounded-lg border border-gray-800 w-max">
+                      <label className="text-xs text-gray-500 font-bold uppercase tracking-wider pl-1">Assign to:</label>
+                      <select 
+                        value={defaultSelected} 
+                        onChange={(e) => setPrPlaylists({...prPlaylists, [i]: e.target.value})}
+                        className="bg-black text-white text-sm rounded-md px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 border border-gray-800"
+                      >
+                        <option value="" disabled>Select Playlist...</option>
+                        {Object.keys(localPlaylists).map(pName => (
+                          <option key={pName} value={pName}>{pName}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-2 relative z-0 items-end">
+                    <div className="flex gap-2">
+                      <button onClick={() => handleResolvePR(i, false)} disabled={prLoading[i]} className="bg-gray-800 hover:bg-red-900/50 disabled:opacity-50 text-red-500 p-3 rounded-lg transition-colors"><X/></button>
+                      <button onClick={() => handleResolvePR(i, true)} disabled={prLoading[i] || !defaultSelected} className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white px-6 py-3 rounded-lg font-bold flex items-center gap-2 transition-colors"><Check/> Merge</button>
+                    </div>
+                    {pr.id && <span className="text-gray-700 font-mono text-[10px] pr-1">ID: {pr.id.split('-')[0]}</span>}
                   </div>
                 </div>
-
-                <div className="flex gap-2 relative z-0">
-                  <button onClick={() => handleResolvePR(i, false)} disabled={prLoading[i]} className="bg-gray-800 hover:bg-red-900/50 disabled:opacity-50 text-red-500 p-3 rounded-lg transition-colors"><X/></button>
-                  <button onClick={() => handleResolvePR(i, true)} disabled={prLoading[i] || !prPlaylists[i]} className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white px-6 py-3 rounded-lg font-bold flex items-center gap-2 transition-colors"><Check/> Merge</button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

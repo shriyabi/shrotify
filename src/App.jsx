@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { GoogleLogin, googleLogout } from '@react-oauth/google';
 import { jwtDecode } from "jwt-decode";
 import Turntable from './components/Turntable';
@@ -15,33 +15,45 @@ export default function App() {
   const [playlists, setPlaylists] = useState({});
   const [playlistMeta, setPlaylistMeta] = useState({});
   const [activePRs, setActivePRs] = useState([]);
+  
+  // FIXED: Added the missing state variables here!
+  const [userFavs, setUserFavs] = useState([]);
+  const [userExp, setUserExp] = useState([]);
+  
   const [view, setView] = useState('dashboard');
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   const loadData = async () => {
-    const data = await fetchDashboardData();
+    // Pass the user's email to get their specific favorites/explore data
+    const data = await fetchDashboardData(user?.email);
     if (data) {
       setSongData(data.songOfTheDay);
       setPlaylists(data.playlists);
       setPlaylistMeta(data.playlistMeta || {});
       setActivePRs(data.activePRs || []);
+      setUserFavs(data.userFavs || []);
+      setUserExp(data.userExp || []);
     }
   };
 
   const handleLogout = () => { 
     googleLogout(); 
     setUser(null); 
+    setUserFavs([]); // Clear cloud favs on logout
+    setUserExp([]);  // Clear cloud explore on logout
     setIsProfileOpen(false); 
     setView('dashboard'); 
   };
 
-  useEffect(() => { loadData(); }, []);
+  // Re-run the fetch whenever the user logs in or out
+  useEffect(() => { 
+    loadData(); 
+  }, [user]);
 
   // Set the admin email to match your Google account
   const isAdmin = user?.email === 'shriyarbiddala@gmail.com';
 
   return (
-    // NEW: Tame, dark purple radial background
     <div className="min-h-screen bg-gray-950 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-900/10 via-gray-950 to-gray-950 text-white font-sans selection:bg-indigo-500/30">
       
       <nav className="sticky top-0 z-50 bg-gray-950/80 backdrop-blur-md border-b border-gray-800 px-4 py-4 md:px-8">
@@ -95,17 +107,26 @@ export default function App() {
         )}
 
         {view === 'my-prs' && user && (
-          <UserPRs activePRs={activePRs} user={user} />
-        )}
+  <UserPRs activePRs={activePRs} user={user} playlists={playlists} />
+)}
 
         {view === 'dashboard' && (
           <div className="max-w-7xl mx-auto grid lg:grid-cols-[400px_1fr] gap-12 relative items-start">
             <div className="space-y-8 sticky top-28">
               <Turntable songData={songData} />
-              <PullRequest user={user} />
+              
+              {/* FIXED: Passed down the onUpdate prop so PRs refresh instantly! */}
+              <PullRequest user={user} onUpdate={loadData} />
             </div>
             <div>
-              <Playlists playlists={playlists} playlistMeta={playlistMeta} />
+              {/* FIXED: Safely passing all the required props to Playlists */}
+              <Playlists 
+                playlists={playlists} 
+                playlistMeta={playlistMeta} 
+                user={user}
+                userFavs={userFavs}
+                userExp={userExp}
+              />
             </div>
           </div>
         )}
