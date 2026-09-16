@@ -175,11 +175,11 @@ export default function AdminPanel({ songData, playlists, playlistMeta, activePR
           </h1>
         </header>
 
-        <div className="flex flex-wrap gap-2 mb-8 bg-gray-900 p-2 rounded-xl w-fit">
-          <button onClick={() => setTab('song')} className={`px-6 py-2 rounded-lg font-bold transition-all ${tab === 'song' ? 'bg-indigo-600' : 'text-gray-400 hover:text-white'}`}>Song of the Day</button>
-          <button onClick={() => setTab('playlists')} className={`px-6 py-2 rounded-lg font-bold transition-all ${tab === 'playlists' ? 'bg-indigo-600' : 'text-gray-400 hover:text-white'}`}>Manage Playlists</button>
-          <button onClick={() => setTab('prs')} className={`px-6 py-2 rounded-lg font-bold flex items-center gap-2 transition-all ${tab === 'prs' ? 'bg-indigo-600' : 'text-gray-400 hover:text-white'}`}>
-            Pull Requests {localPRs.length > 0 && <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">{localPRs.length}</span>}
+        <div className="flex items-center justify-center flex-wrap gap-2 mb-8 bg-gray-900 p-2 rounded-xl w-fit">
+          <button onClick={() => setTab('song')} className={`px-6 py-2 rounded-lg w-full md:w-auto font-bold transition-all ${tab === 'song' ? 'bg-indigo-600' : 'text-gray-400 hover:text-white'}`}>Song of the Day</button>
+          <button onClick={() => setTab('playlists')} className={`px-6 py-2 rounded-lg w-full md:w-auto font-bold transition-all ${tab === 'playlists' ? 'bg-indigo-600' : 'text-gray-400 hover:text-white'}`}>Manage Playlists</button>
+          <button onClick={() => setTab('prs')} className={`px-6 py-2 rounded-lg text-center items-center justify-center font-bold w-full md:w-auto flex  gap-2 transition-all ${tab === 'prs' ? 'bg-indigo-600' : 'text-gray-400 hover:text-white'}`}>
+            Pull Requests {localPRs.length > 0 && <span className="bg-red-500 text-center text-white text-xs px-2 py-0.5 rounded-full">{localPRs.length}</span>}
           </button>
         </div>
 
@@ -299,46 +299,53 @@ export default function AdminPanel({ songData, playlists, playlistMeta, activePR
                 : (Object.keys(localPlaylists).includes(pr.playlist) ? pr.playlist : '');
 
               return (
-                <div key={i} className="bg-gray-900 p-5 rounded-xl border border-gray-800 flex justify-between items-center relative overflow-hidden">
+                <div key={i} className="relative overflow-hidden rounded-xl border border-gray-800 bg-gray-900 p-4 sm:p-5">
                   {prLoading[i] && (
-                    <div className="absolute inset-0 bg-gray-900/80 backdrop-blur-sm z-10 flex items-center justify-center">
-                        <Loader2 className="w-6 h-6 text-indigo-500 animate-spin" />
+                    <div className="absolute inset-0 z-10 flex items-center justify-center bg-gray-900/80 backdrop-blur-sm">
+                      <Loader2 className="h-6 w-6 animate-spin text-indigo-500" />
                     </div>
                   )}
-                  <div className="relative z-0">
-                    <p className="font-bold text-lg flex items-center gap-2 mb-1">{pr.song} - {pr.artist} 
-                      <button onClick={() => playPreview(pr.song, pr.artist)} className="text-indigo-400 hover:text-white transition-colors"><PlayCircle className="w-5 h-5" /></button>
-                    </p>
-                    
-                    <p className="text-sm text-gray-400 mb-1">
-                      Suggested Genre: <span className="text-gray-300 font-bold">{pr.genre}</span> | 
-                      Suggested Playlist: <span className="text-gray-300 font-bold">{pr.playlist || 'None'}</span>
-                    </p>
-                    <p className="text-xs text-gray-500 mb-4">
-                      By: <span className="text-gray-400">{pr.user} ({pr.email || 'No email'})</span> on {pr.date ? new Date(pr.date).toLocaleDateString() : 'Unknown'}
-                    </p>
-                    
-                    <div className="flex items-center gap-3 bg-gray-950 p-2 rounded-lg border border-gray-800 w-max">
-                      <label className="text-xs text-gray-500 font-bold uppercase tracking-wider pl-1">Assign to:</label>
-                      <select 
-                        value={defaultSelected} 
-                        onChange={(e) => setPrPlaylists({...prPlaylists, [i]: e.target.value})}
-                        className="bg-black text-white text-sm rounded-md px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 border border-gray-800"
-                      >
-                        <option value="" disabled>Select Playlist...</option>
-                        {Object.keys(localPlaylists).map(pName => (
-                          <option key={pName} value={pName}>{pName}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
 
-                  <div className="flex flex-col gap-2 relative z-0 items-end">
-                    <div className="flex gap-2">
-                      <button onClick={() => handleResolvePR(i, false)} disabled={prLoading[i]} className="bg-gray-800 hover:bg-red-900/50 disabled:opacity-50 text-red-500 p-3 rounded-lg transition-colors"><X/></button>
-                      <button onClick={() => handleResolvePR(i, true)} disabled={prLoading[i] || !defaultSelected} className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white px-6 py-3 rounded-lg font-bold flex items-center gap-2 transition-colors"><Check/> Merge</button>
+                  <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                    <div className="relative z-0 min-w-0 flex-1">
+                      <p className="mb-1 flex flex-wrap items-center gap-2 text-base font-bold text-white sm:text-lg">
+                        <span className="break-words">{pr.song} - {pr.artist}</span>
+                        <button onClick={() => playPreview(pr.song, pr.artist)} className="text-indigo-400 transition-colors hover:text-white">
+                          <PlayCircle className="h-5 w-5" />
+                        </button>
+                      </p>
+
+                      <p className="mb-1 text-sm text-gray-400">
+                        Suggested Genre: <span className="font-bold text-gray-300">{pr.genre}</span> |
+                        Suggested Playlist: <span className="font-bold text-gray-300">{pr.playlist || 'None'}</span>
+                      </p>
+
+                      <p className="mb-4 text-xs text-gray-500">
+                        By: <span className="text-gray-400">{pr.user} ({pr.email || 'No email'})</span> on {pr.date ? new Date(pr.date).toLocaleDateString() : 'Unknown'}
+                      </p>
+
+                      <div className="flex w-full flex-col gap-2 rounded-lg border border-gray-800 bg-gray-950 p-2.5 sm:flex-row sm:items-center sm:gap-3 md:w-fit">
+                        <label className="pl-1 text-[10px] font-bold uppercase tracking-[0.18em] text-gray-500">Assign to:</label>
+                        <select
+                          value={defaultSelected}
+                          onChange={(e) => setPrPlaylists({ ...prPlaylists, [i]: e.target.value })}
+                          className="w-full rounded-md border border-gray-800 bg-black px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-indigo-500 sm:w-auto"
+                        >
+                          <option value="" disabled>Select Playlist...</option>
+                          {Object.keys(localPlaylists).map(pName => (
+                            <option key={pName} value={pName}>{pName}</option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
-                    {pr.id && <span className="text-gray-700 font-mono text-[10px] pr-1">ID: {pr.id.split('-')[0]}</span>}
+
+                    <div className="relative z-0 flex w-full flex-col items-stretch gap-2 md:w-auto md:items-end">
+                      <div className="flex justify-end gap-2">
+                        <button onClick={() => handleResolvePR(i, false)} disabled={prLoading[i]} className="rounded-lg bg-gray-800 p-3 text-red-500 transition-colors hover:bg-red-900/50 disabled:opacity-50"><X /></button>
+                        <button onClick={() => handleResolvePR(i, true)} disabled={prLoading[i] || !defaultSelected} className="flex items-center gap-2 rounded-lg bg-indigo-600 px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"><Check /> Merge</button>
+                      </div>
+                      {pr.id && <span className="text-right text-[10px] font-mono text-gray-700 md:pr-1">ID: {pr.id.split('-')[0]}</span>}
+                    </div>
                   </div>
                 </div>
               );

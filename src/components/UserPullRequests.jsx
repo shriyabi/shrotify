@@ -50,7 +50,7 @@ export default function UserPullRequests({ activePRs, user, playlists }) {
         </div>
         <div>
           <h1 className="text-3xl font-bold text-gray-200">My Pull Requests</h1>
-          <p className="text-gray-500 text-sm mt-1">Track the status of your submitted repository requests.</p>
+          <p className="text-gray-500 text-sm mt-1">Track the status of your submitted song recommendations.</p>
         </div>
       </div>
 

@@ -147,7 +147,7 @@ export default function Playlists({ playlists, playlistMeta }) {
             <div className="absolute right-0 top-12 flex bg-gray-900 border border-gray-700 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2">
               
               {/* Left Side: Playlist List */}
-              <div className="flex flex-col w-56 max-h-[350px] overflow-y-auto custom-scrollbar p-2 bg-gray-950">
+              <div className="flex flex-col sm:w-56 w-[calc(100vw-2rem)] max-h-[350px] overflow-y-auto custom-scrollbar p-2 bg-gray-950">
                 <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 px-2 mt-1">Select Sections</p>
                 {allPlaylistsList.length === 0 && <p className="text-gray-500 text-sm p-2">No playlists exist.</p>}
                 
@@ -186,9 +186,9 @@ export default function Playlists({ playlists, playlistMeta }) {
               </div>
 
               {/* Right Side: Hover Image Display */}
-              <div className="w-48 bg-black relative flex items-center justify-center border-l border-gray-800">
+              <div className="hidden sm:flex w-48 bg-black relative items-center justify-center border-l border-gray-800">
                 {hoveredPlaylist && playlistMeta[hoveredPlaylist]?.url ? (
-                  <img src={playlistMeta[hoveredPlaylist].url} alt={hoveredPlaylist} className="w-full h-full object-cover animate-in fade-in duration-300" />
+                  <img src={playlistMeta[hoveredPlaylist].url} alt={hoveredPlaylist} className="w-full h-full object-cover max-w-full max-h-[14rem] animate-in fade-in duration-300" />
                 ) : (
                   <div className="text-center p-4">
                     <LayoutGrid className="w-8 h-8 text-gray-800 mx-auto mb-2" />
