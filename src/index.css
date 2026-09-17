@@ -71,3 +71,18 @@ body {
   --animate-spin-slow: spin 4s linear infinite;
 }
 
+/* Animated ombre for the brand text */
+@keyframes ombreShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.shrotify-ombre {
+  background-size: 200% 200%;
+  animation: ombreShift 8s linear infinite;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
