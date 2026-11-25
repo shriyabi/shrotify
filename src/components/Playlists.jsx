@@ -1,5 +1,39 @@
 import { useState, useEffect, useRef } from 'react';
-import { Play, Pause, ChevronDown, Star, LayoutGrid, Plus, Check, Pin } from 'lucide-react';
+import { Play, Pause, ChevronDown, Star, LayoutGrid, Plus, Check, Pin, Disc3 } from 'lucide-react';
+
+const getPlaylistColors = (name = '') => {
+  const palettes = [
+    ['#312e81', '#8b5cf6'],
+    ['#831843', '#ec4899'],
+    ['#7c2d12', '#f97316'],
+    ['#064e3b', '#10b981'],
+    ['#164e63', '#06b6d4'],
+    ['#1e3a8a', '#3b82f6'],
+  ];
+  const hash = [...name].reduce((total, char) => total + char.charCodeAt(0), 0);
+  return palettes[hash % palettes.length];
+};
+
+function PlaylistCover({ name, url, className = '' }) {
+  const [dark, accent] = getPlaylistColors(name);
+
+  if (url) {
+    return <img src={url} alt={`${name} playlist cover`} className={`object-cover ${className}`} />;
+  }
+
+  return (
+    <div
+      className={`relative flex shrink-0 items-center justify-center overflow-hidden ${className}`}
+      style={{ background: `linear-gradient(135deg, ${dark}, ${accent})` }}
+      aria-label={`${name} default playlist cover`}
+    >
+      <div className="absolute aspect-square w-[62%] rounded-full border-[7px] border-black/20 bg-[conic-gradient(from_25deg,#0f172a,#7dd3fc,#0f172a,#c4b5fd,#0f172a)] shadow-xl" />
+      <div className="relative z-10 flex aspect-square w-[28%] items-center justify-center rounded-full border border-white/30 bg-black/40">
+        <Disc3 className="h-[55%] w-[55%] text-white/90" />
+      </div>
+    </div>
+  );
+}
 
 function TrackItem({ track, activeUrl, setActiveUrl }) {
   const [meta, setMeta] = useState(null);
@@ -71,14 +105,15 @@ function TrackItem({ track, activeUrl, setActiveUrl }) {
   );
 }
 
-function PlaylistCard({ playlistTitle, tracks, activeUrl, setActiveUrl, isAdminPinned }) {
+function PlaylistCard({ playlistTitle, playlistUrl, tracks, activeUrl, setActiveUrl, isAdminPinned }) {
   return (
     <div className="relative bg-white/[0.03] backdrop-blur-2xl backdrop-saturate-[1.3] border border-white/10 rounded-[32px] p-6 shadow-[0_8px_32px_rgba(0,0,0,0.4)] w-full min-w-0 overflow-hidden group hover:bg-white/[0.05] hover:border-white/20 transition-all duration-500">
       <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-transparent opacity-60 pointer-events-none rounded-[32px]" />
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.05)_0%,transparent_60%)] pointer-events-none" />
 
       <div className="relative z-10 flex items-center justify-between mb-5 border-b border-white/10 pb-4 min-w-0 gap-3">
-        <div className="flex min-w-0 items-center gap-2 truncate pr-8">
+        <div className="flex min-w-0 items-center gap-3 truncate">
+          <PlaylistCover name={playlistTitle} url={playlistUrl} className="h-11 w-11 rounded-xl border border-white/10 shadow-lg" />
           {isAdminPinned && (
             <div className="shrink-0 p-1.5 bg-indigo-500/20 border border-indigo-500/30 rounded-full text-indigo-300 shadow-[0_0_10px_rgba(99,102,241,0.2)]" title="Pinned globally by Admin">
               <Pin className="w-3.5 h-3.5 fill-indigo-400" />
@@ -186,10 +221,13 @@ export default function Playlists({ playlists, playlistMeta }) {
                   
                   return (
                     <div key={playlist} onMouseEnter={() => setHoveredPlaylist(playlist)} onMouseLeave={() => setHoveredPlaylist(null)} className="flex items-center justify-between p-2.5 hover:bg-white/10 rounded-xl group transition-colors min-w-0">
-                      <span className="text-sm font-bold text-white/90 truncate pr-2 flex items-center gap-2">
-                        {playlist}
-                        {isAdminPinned && <Pin className="w-3 h-3 text-indigo-400 shrink-0" />}
-                      </span>
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <PlaylistCover name={playlist} url={playlistMeta[playlist]?.url} className="h-9 w-9 rounded-lg border border-white/10 shadow-md" />
+                        <span className="text-sm font-bold text-white/90 truncate pr-2 flex items-center gap-2">
+                          {playlist}
+                          {isAdminPinned && <Pin className="w-3 h-3 text-indigo-400 shrink-0" />}
+                        </span>
+                      </div>
                       
                       <div className="flex items-center gap-1.5 shrink-0 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                         <button 
@@ -213,8 +251,12 @@ export default function Playlists({ playlists, playlistMeta }) {
               </div>
 
               <div className="hidden sm:flex w-56 bg-black/40 relative items-center justify-center border-l border-white/10">
-                {hoveredPlaylist && playlistMeta[hoveredPlaylist]?.url ? (
-                  <img src={playlistMeta[hoveredPlaylist].url} alt={hoveredPlaylist} className="w-full h-full object-cover max-w-full max-h-[16rem] animate-in fade-in duration-500" />
+                {hoveredPlaylist ? (
+                  <PlaylistCover
+                    name={hoveredPlaylist}
+                    url={playlistMeta[hoveredPlaylist]?.url}
+                    className="h-full w-full max-h-[16rem] animate-in fade-in duration-500"
+                  />
                 ) : (
                   <div className="text-center p-4">
                     <LayoutGrid className="w-8 h-8 text-white/20 mx-auto mb-3" />
@@ -244,7 +286,7 @@ export default function Playlists({ playlists, playlistMeta }) {
         {validFavorites.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 w-full min-w-0">
             {validFavorites.map(playlist => (
-              <PlaylistCard key={playlist} playlistTitle={playlist} tracks={playlists[playlist]} activeUrl={activeUrl} setActiveUrl={setActiveUrl} isAdminPinned={playlistMeta[playlist]?.pinned} />
+              <PlaylistCard key={playlist} playlistTitle={playlist} playlistUrl={playlistMeta[playlist]?.url} tracks={playlists[playlist]} activeUrl={activeUrl} setActiveUrl={setActiveUrl} isAdminPinned={playlistMeta[playlist]?.pinned} />
             ))}
           </div>
         ) : (
@@ -266,7 +308,7 @@ export default function Playlists({ playlists, playlistMeta }) {
         {validExplore.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 w-full min-w-0">
             {validExplore.map(playlist => (
-              <PlaylistCard key={playlist} playlistTitle={playlist} tracks={playlists[playlist]} activeUrl={activeUrl} setActiveUrl={setActiveUrl} isAdminPinned={false} />
+              <PlaylistCard key={playlist} playlistTitle={playlist} playlistUrl={playlistMeta[playlist]?.url} tracks={playlists[playlist]} activeUrl={activeUrl} setActiveUrl={setActiveUrl} isAdminPinned={false} />
             ))}
           </div>
         ) : (
